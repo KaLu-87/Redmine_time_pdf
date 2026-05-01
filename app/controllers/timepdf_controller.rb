@@ -41,6 +41,25 @@ class TimepdfController < ApplicationController
     @project = Project.find(params[:project_id])
   end
 
+  # Returns the real, validated logo path or nil if missing/outside the plugin directory.
+  def sanitized_logo_path
+    raw = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s.strip
+    return nil if raw.blank?
+
+    plugin_dir = File.realpath(Redmine::Plugin.find(:redmine_timepdf).directory)
+    real_path  = File.realpath(raw)
+
+    unless real_path.start_with?(plugin_dir + File::SEPARATOR)
+      Rails.logger.warn("[timepdf] logo path outside plugin directory, ignored: #{raw}")
+      return nil
+    end
+
+    real_path
+  rescue Errno::ENOENT, Errno::EACCES => e
+    Rails.logger.warn("[timepdf] logo path not accessible: #{e.message}")
+    nil
+  end
+
   # Landscape A4 PDF: no vertical rules, zebra rows, bold header,
   # widened right-aligned "Hours" column, highlighted summary rows,
   # 14pt spacing after each summary, and 28pt spacing before each next group header.
@@ -48,20 +67,18 @@ class TimepdfController < ApplicationController
     require 'prawn'
     require 'prawn/table'
 
-    logo_path = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s
+    logo_path = sanitized_logo_path
 
     Prawn::Document.new(page_size: 'A4', page_layout: :landscape, margin: 36).tap do |doc|
       # Header with optional logo at top-right.
       header_y = doc.cursor
       doc.text project.name, size: 16, style: :bold
-      if logo_path.present? && File.exist?(logo_path)
+      if logo_path
         begin
           doc.image logo_path, at: [doc.bounds.right - 120, header_y + 16], width: 100
-        rescue => e
+        rescue StandardError => e
           Rails.logger.warn("[timepdf] logo load failed: #{e.class}: #{e.message}")
         end
-      else
-        Rails.logger.info("[timepdf] logo missing or unreadable: #{logo_path}")
       end
       doc.move_down 8
 
