@@ -2,4 +2,5 @@
 <p><label><%= l(:timepdf_logo_path_label) %></label><br/>
 <em><%= l(:timepdf_logo_path_hint) %></em><br/>
 <em>/var/www/html/redmine/plugins/redmine_timepdf/files/logo.png</em><br/>
-<%= text_field_tag 'settings[logo_path]', settings['logo_path'], size: 80 %></p>
+<%= text_field_tag 'settings[logo_path]', settings['logo_path'], size: 80 %>
+&nbsp; <%= link_to l(:timepdf_upload_logo), timepdf_upload_logo_form_path %></p>

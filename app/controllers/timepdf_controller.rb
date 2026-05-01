@@ -1,9 +1,47 @@
 # Controller that renders the PDF for time entries using the user's active filters.
 class TimepdfController < ApplicationController
-  before_action :find_project
-  before_action :authorize  # checks :export_spenttime_pdf via plugin permission
+  before_action :find_project, only: [:export]
+  before_action :authorize,    only: [:export]  # checks :export_spenttime_pdf via plugin permission
+  before_action :require_admin, only: [:upload_logo_form, :upload_logo]
   helper :timelog
   include TimelogHelper
+
+  def upload_logo_form
+    @current_path = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s
+  end
+
+  def upload_logo
+    uploaded = params[:logo_file]
+
+    unless uploaded.is_a?(ActionDispatch::Http::UploadedFile)
+      flash[:error] = l(:timepdf_upload_no_file)
+      redirect_to timepdf_upload_logo_form_path and return
+    end
+
+    ext = File.extname(uploaded.original_filename).downcase
+    unless %w[.png .jpg .jpeg].include?(ext)
+      flash[:error] = l(:timepdf_upload_invalid_type)
+      redirect_to timepdf_upload_logo_form_path and return
+    end
+
+    if uploaded.size > 2.megabytes
+      flash[:error] = l(:timepdf_upload_too_large)
+      redirect_to timepdf_upload_logo_form_path and return
+    end
+
+    plugin_dir = Redmine::Plugin.find(:redmine_timepdf).directory
+    files_dir  = File.join(plugin_dir, 'files')
+    FileUtils.mkdir_p(files_dir)
+    dest = File.join(files_dir, "logo#{ext}")
+    FileUtils.cp(uploaded.tempfile.path, dest)
+
+    settings = Setting.plugin_redmine_timepdf.dup
+    settings['logo_path'] = dest
+    Setting.plugin_redmine_timepdf = settings
+
+    flash[:notice] = l(:timepdf_upload_success)
+    redirect_to plugin_settings_path(:redmine_timepdf)
+  end
 
   def export
     Rails.logger.info("[timepdf] params=#{params.to_unsafe_h.inspect}")

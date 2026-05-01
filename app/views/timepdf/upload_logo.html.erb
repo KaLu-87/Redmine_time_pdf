@@ -1,0 +1,16 @@
+<h2><%= l(:timepdf_upload_logo) %></h2>
+
+<% if @current_path.present? %>
+  <p><strong><%= l(:timepdf_upload_current) %>:</strong> <%= @current_path %></p>
+<% end %>
+
+<%= form_tag timepdf_upload_logo_path, multipart: true do %>
+  <p>
+    <label><%= l(:timepdf_upload_hint) %></label><br/>
+    <%= file_field_tag :logo_file, accept: 'image/png,image/jpeg' %>
+  </p>
+  <p>
+    <%= submit_tag l(:timepdf_upload_button) %>
+    <%= link_to l(:timepdf_upload_back), plugin_settings_path(:redmine_timepdf) %>
+  </p>
+<% end %>
