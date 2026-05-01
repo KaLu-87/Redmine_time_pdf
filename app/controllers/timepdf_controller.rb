@@ -85,7 +85,7 @@ class TimepdfController < ApplicationController
       doc.move_down 8
 
       if no_data
-        doc.text "No time entries found for the selected filters. Please apply a filter in the Spent time view and try again.", style: :italic
+        doc.text l(:timepdf_no_entries), style: :italic
       else
         group_keys = groups.keys
         groups.each_with_index do |(gval, rows), idx|
@@ -102,7 +102,7 @@ class TimepdfController < ApplicationController
             doc.move_down 4
           end
 
-          header = columns.map(&:caption) + ['Hours']
+          header = columns.map(&:caption) + [l(:timepdf_hours)]
           table_data = [header]
 
           rows.each do |t|
@@ -113,7 +113,7 @@ class TimepdfController < ApplicationController
 
           # Append per-group summary row.
           group_sum = rows.sum { |r| r.hours.to_f }
-          table_data << ([''] * (header.size - 1) + ["Total: #{sprintf('%.2f', group_sum)}"])
+          table_data << ([''] * (header.size - 1) + ["#{l(:timepdf_total)}: #{sprintf('%.2f', group_sum)}"])
 
           last_idx = header.size - 1
           tbl = doc.make_table(
@@ -152,7 +152,7 @@ class TimepdfController < ApplicationController
         if group_by.present? && groups.size > 1
           grand_total = groups.values.flatten.sum { |r| r.hours.to_f }
           col_count   = columns.size + 1
-          grand_row   = [''] * (col_count - 1) + ["Grand Total: #{sprintf('%.2f', grand_total)}"]
+          grand_row   = [''] * (col_count - 1) + ["#{l(:timepdf_grand_total)}: #{sprintf('%.2f', grand_total)}"]
 
           tbl = doc.make_table(
             [grand_row],
@@ -171,7 +171,7 @@ class TimepdfController < ApplicationController
 
       # Footer
       doc.number_pages "<page>/<total>", at: [doc.bounds.right - 50, 0], size: 9
-      doc.number_pages "Generated: #{Date.today.strftime('%Y-%m-%d')}", at: [0, 0], size: 9
+      doc.number_pages "#{l(:timepdf_generated)}: #{Date.today.strftime('%Y-%m-%d')}", at: [0, 0], size: 9
     end
   end
 end

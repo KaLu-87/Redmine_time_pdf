@@ -1,0 +1,11 @@
+de:
+  timepdf_export_pdf: "PDF exportieren"
+  timepdf_link_label: "PDF"
+  timepdf_hours: "Stunden"
+  timepdf_total: "Summe"
+  timepdf_grand_total: "Gesamtsumme"
+  timepdf_generated: "Erstellt"
+  timepdf_no_entries: "Keine Zeiteinträge für die gewählten Filter gefunden. Bitte setze zuerst einen Filter in der Aufgewendete Zeit-Ansicht."
+  timepdf_logo_path_label: "Logo-Pfad (PNG/JPG, optional)"
+  timepdf_logo_path_hint: "Die Datei muss im Plugin-Verzeichnis liegen. Beispiel:"
+  permission_export_spenttime_pdf: "Aufgewendete Zeit als PDF exportieren"

@@ -1,0 +1,11 @@
+en:
+  timepdf_export_pdf: "Export PDF"
+  timepdf_link_label: "PDF"
+  timepdf_hours: "Hours"
+  timepdf_total: "Total"
+  timepdf_grand_total: "Grand Total"
+  timepdf_generated: "Generated"
+  timepdf_no_entries: "No time entries found for the selected filters. Please apply a filter in the Spent time view and try again."
+  timepdf_logo_path_label: "Logo path (PNG/JPG, optional)"
+  timepdf_logo_path_hint: "The file must be located inside the plugin directory. Example:"
+  permission_export_spenttime_pdf: "Export spent time PDF"
