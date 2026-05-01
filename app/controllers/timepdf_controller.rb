@@ -75,7 +75,9 @@ class TimepdfController < ApplicationController
       doc.text project.name, size: 16, style: :bold
       if logo_path
         begin
-          doc.image logo_path, at: [doc.bounds.right - 120, header_y + 16], width: 100
+          doc.image logo_path, at: [doc.bounds.right - 120, header_y], fit: [100, 40]
+          # If the logo is taller than the project name text, push the cursor down to clear it.
+          doc.move_cursor_to(header_y - 40) if doc.cursor > (header_y - 40)
         rescue StandardError => e
           Rails.logger.warn("[timepdf] logo load failed: #{e.class}: #{e.message}")
         end
