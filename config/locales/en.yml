@@ -18,3 +18,4 @@ en:
   timepdf_upload_invalid_type: "Only PNG and JPG files are allowed."
   timepdf_upload_too_large: "File is too large. Maximum size is 2 MB."
   timepdf_upload_success: "Logo uploaded successfully."
+  timepdf_truncated: "Warning: Only the first %{count} entries are shown. Please narrow your filter."

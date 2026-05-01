@@ -3,8 +3,17 @@ class TimepdfController < ApplicationController
   before_action :find_project, only: [:export]
   before_action :authorize,    only: [:export]  # checks :export_spenttime_pdf via plugin permission
   before_action :require_admin, only: [:upload_logo_form, :upload_logo]
-  helper :timelog
-  include TimelogHelper
+
+  MAX_ENTRIES = 2000
+  HOURS_WIDTH = 120
+  COLUMN_WIDTHS = {
+    spent_on: 55,
+    user:     80,
+    author:   80,
+    activity: 75,
+    issue:    110,
+    project:  110,
+  }.freeze
 
   def upload_logo_form
     @current_path = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s
@@ -48,8 +57,11 @@ class TimepdfController < ApplicationController
     @query = TimeEntryQuery.build_from_params(params, name: '_')
     @query.project = @project if @project
 
-    scope = @query.results_scope.includes(:user, :issue, :activity, :project)
-    entries = scope.to_a
+    scope   = @query.results_scope.includes(:user, :issue, :activity, :project)
+    entries = scope.limit(MAX_ENTRIES + 1).to_a
+    truncated = entries.size > MAX_ENTRIES
+    entries   = entries.first(MAX_ENTRIES) if truncated
+    Rails.logger.warn("[timepdf] result truncated to #{MAX_ENTRIES}") if truncated
     Rails.logger.info("[timepdf] entries=#{entries.size}")
 
     columns = @query.inline_columns.reject { |c| c.name == :hours }
@@ -66,7 +78,7 @@ class TimepdfController < ApplicationController
                { nil => entries }
              end
 
-    pdf = build_pdf(@project, columns, groups, group_by, entries.empty?)
+    pdf = build_pdf(@project, columns, groups, group_by, entries.empty?, truncated)
     send_data pdf.render,
               filename: "spent_time_#{@project.identifier}_#{Date.today}.pdf",
               type: 'application/pdf',
@@ -77,6 +89,20 @@ class TimepdfController < ApplicationController
 
   def find_project
     @project = Project.find(params[:project_id])
+  end
+
+  # Assigns sensible column widths based on column type.
+  # Known columns get fixed widths; any remaining width goes to unknown columns (e.g. comments).
+  def column_widths_for(columns, total_width)
+    widths     = columns.each_with_index.with_object({}) do |(col, i), h|
+      h[i] = COLUMN_WIDTHS[col.name] if COLUMN_WIDTHS.key?(col.name)
+    end
+    assigned   = widths.values.sum + HOURS_WIDTH
+    free_count = columns.size - widths.size
+    fallback   = free_count > 0 ? [(total_width - assigned) / free_count, 40].max.floor : 0
+    columns.each_index { |i| widths[i] ||= fallback }
+    widths[columns.size] = HOURS_WIDTH
+    widths
   end
 
   # Returns the real, validated logo path or nil if missing/outside the plugin directory.
@@ -101,7 +127,7 @@ class TimepdfController < ApplicationController
   # Landscape A4 PDF: no vertical rules, zebra rows, bold header,
   # widened right-aligned "Hours" column, highlighted summary rows,
   # 14pt spacing after each summary, and 28pt spacing before each next group header.
-  def build_pdf(project, columns, groups, group_by, no_data)
+  def build_pdf(project, columns, groups, group_by, no_data, truncated = false)
     require 'prawn'
     require 'prawn/table'
 
@@ -125,7 +151,10 @@ class TimepdfController < ApplicationController
       if no_data
         doc.text l(:timepdf_no_entries), style: :italic
       else
-        group_keys = groups.keys
+        if truncated
+          doc.text l(:timepdf_truncated, count: MAX_ENTRIES), style: :italic, color: 'CC0000'
+          doc.move_down 6
+        end
         groups.each_with_index do |(gval, rows), idx|
           next if rows.empty?
 
@@ -159,7 +188,7 @@ class TimepdfController < ApplicationController
             header: true,
             width: doc.bounds.width,
             row_colors: ['F8F8F8', 'FFFFFF'],
-            column_widths: { last_idx => 120 }
+            column_widths: column_widths_for(columns, doc.bounds.width)
           )
 
           tbl.cells.padding = 4
@@ -195,7 +224,7 @@ class TimepdfController < ApplicationController
           tbl = doc.make_table(
             [grand_row],
             width: doc.bounds.width,
-            column_widths: { col_count - 1 => 120 }
+            column_widths: column_widths_for(columns, doc.bounds.width)
           )
           tbl.cells.padding       = 4
           tbl.cells.borders       = [:top, :bottom]
