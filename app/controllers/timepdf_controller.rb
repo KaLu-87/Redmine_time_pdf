@@ -12,16 +12,7 @@ class TimepdfController < ApplicationController
 
     scope = @query.results_scope.includes(:user, :issue, :activity, :project)
     entries = scope.to_a
-    Rails.logger.info("[timepdf] initial entries=#{entries.size}")
-
-    if entries.empty?
-      from = Date.today.beginning_of_month
-      to   = Date.today.end_of_month
-      scope = TimeEntry.visible.where(project_id: @project.id, spent_on: from..to)
-                        .includes(:user, :issue, :activity, :project)
-      entries = scope.to_a
-      Rails.logger.info("[timepdf] fallback entries=#{entries.size} (#{from}..#{to})")
-    end
+    Rails.logger.info("[timepdf] entries=#{entries.size}")
 
     columns = @query.inline_columns.reject { |c| c.name == :hours }
     if columns.blank?
@@ -75,7 +66,7 @@ class TimepdfController < ApplicationController
       doc.move_down 8
 
       if no_data
-        doc.text "No time entries for the selected filter period.", style: :italic
+        doc.text "No time entries found for the selected filters. Please apply a filter in the Spent time view and try again.", style: :italic
       else
         group_keys = groups.keys
         groups.each_with_index do |(gval, rows), idx|
