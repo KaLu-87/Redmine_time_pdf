@@ -1,5 +1,5 @@
 # Retry creation of README_TimePDF_0.3.8.txt
-readme_content = """# Time PDF Export Plugin (v0.3.8)
+readme_content = """# Time PDF Export Plugin (v0.4.0)
 
 ## Overview
 The **Time PDF Export** plugin for Redmine allows exporting the *Spent time* view of any project into a clean, printable **PDF report**.
