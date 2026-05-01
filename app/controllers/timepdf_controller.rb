@@ -146,6 +146,25 @@ class TimepdfController < ApplicationController
 
           doc.move_down 14  # 14pt after each group's summary
         end
+
+        if group_by.present? && groups.size > 1
+          grand_total = groups.values.flatten.sum { |r| r.hours.to_f }
+          col_count   = columns.size + 1
+          grand_row   = [''] * (col_count - 1) + ["Grand Total: #{sprintf('%.2f', grand_total)}"]
+
+          tbl = doc.make_table(
+            [grand_row],
+            width: doc.bounds.width,
+            column_widths: { col_count - 1 => 120 }
+          )
+          tbl.cells.padding       = 4
+          tbl.cells.borders       = [:top, :bottom]
+          tbl.cells.border_width  = 1.5
+          tbl.cells.font_style    = :bold
+          tbl.cells.background_color = 'B0B0B0'
+          tbl.columns(col_count - 1).align = :right
+          tbl.draw
+        end
       end
 
       # Footer
