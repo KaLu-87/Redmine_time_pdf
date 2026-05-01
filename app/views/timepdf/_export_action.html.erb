@@ -1,0 +1,6 @@
+<%# Link in the Actions menu; opens in a new tab %>
+<% if @project && User.current.allowed_to?(:export_spenttime_pdf, @project) %>
+  <%= link_to 'Export PDF',
+      timepdf_export_project_path(@project, controller.request.query_parameters.merge(format: :pdf)),
+      class: 'icon icon-pdf', target: '_blank', rel: 'noopener' %>
+<% end %>
