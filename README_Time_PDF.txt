@@ -83,13 +83,6 @@ instead of an empty document.
 
 ---
 
-## Known Issues
-
-1.  Accumulating grouped totals can lead to unexpected results in some
-    edge cases. This behavior has not yet been fully investigated.
-
----
-
 ## Installation
 
 Perform all commands as **root**.
