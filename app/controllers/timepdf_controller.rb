@@ -95,7 +95,7 @@ class TimepdfController < ApplicationController
 
     criteria = Array(params[:criteria]).reject(&:blank?)
     columns  = params[:columns].presence || 'month'
-    @report  = Redmine::Helpers::TimeReport.new(@project, nil, criteria, columns, @query)
+    @report  = Redmine::Helpers::TimeReport.new(@project, criteria, columns, @query.results_scope)
 
     Rails.logger.info("[timepdf] report criteria=#{criteria.inspect} columns=#{columns} periods=#{@report.periods.size}")
 
