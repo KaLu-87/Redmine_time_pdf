@@ -110,15 +110,17 @@ class TimepdfController < ApplicationController
     raw = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s.strip
     return nil if raw.blank?
 
-    plugin_dir = File.realpath(Redmine::Plugin.find(:redmine_timepdf).directory)
-    real_path  = File.realpath(raw)
-
-    unless real_path.start_with?(plugin_dir + File::SEPARATOR)
-      Rails.logger.warn("[timepdf] logo path outside plugin directory, ignored: #{raw}")
+    unless File.file?(raw) && File.readable?(raw)
+      Rails.logger.warn("[timepdf] logo path not a readable file: #{raw}")
       return nil
     end
 
-    real_path
+    unless %w[.png .jpg .jpeg].include?(File.extname(raw).downcase)
+      Rails.logger.warn("[timepdf] logo path has unsupported extension: #{raw}")
+      return nil
+    end
+
+    raw
   rescue Errno::ENOENT, Errno::EACCES => e
     Rails.logger.warn("[timepdf] logo path not accessible: #{e.message}")
     nil
@@ -186,7 +188,6 @@ class TimepdfController < ApplicationController
           tbl = doc.make_table(
             table_data,
             header: true,
-            width: doc.bounds.width,
             row_colors: ['F8F8F8', 'FFFFFF'],
             column_widths: column_widths_for(columns, doc.bounds.width)
           )
@@ -223,7 +224,6 @@ class TimepdfController < ApplicationController
 
           tbl = doc.make_table(
             [grand_row],
-            width: doc.bounds.width,
             column_widths: column_widths_for(columns, doc.bounds.width)
           )
           tbl.cells.padding       = 4

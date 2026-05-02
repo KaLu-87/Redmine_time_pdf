@@ -56,8 +56,9 @@ Select a PNG or JPG file (max. 2 MB). The path is set automatically.
 
 **Option B – Set path manually:**
 Enter the absolute path to a PNG/JPG file on the server.
-The file must be located inside the plugin directory, e.g.:
+The file may live anywhere readable by the webserver user, e.g.:
     /var/www/html/redmine/plugins/redmine_timepdf/files/logo.png
+    /var/www/html/redmine/themes/<your_theme>/images/logo.png
 
 Make sure the file is readable by the webserver user (e.g., www-data).
 
