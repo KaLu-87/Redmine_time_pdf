@@ -1,0 +1,11 @@
+<%# Injects the JS asset and a config object the script reads to build buttons. %>
+<%= javascript_include_tag 'timepdf', plugin: 'redmine_timepdf' %>
+<%= javascript_tag do %>
+window.timepdfConfig = {
+  url: <%= raw timepdf_export_project_path(project).to_json %>,
+  labels: {
+    action: <%= raw l(:timepdf_export_pdf).to_json %>,
+    format: <%= raw l(:timepdf_link_label).to_json %>
+  }
+};
+<% end %>

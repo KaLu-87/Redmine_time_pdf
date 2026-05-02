@@ -36,9 +36,9 @@ It respects all active filters, groupings, and visible columns in Redmine and is
 
 - Written in Ruby on Rails using Redmine's plugin API.
 - PDF generation by Prawn and Prawn-Table.
-- Integrates via Redmine hooks:
-    - view_timelog_index_contextual
-    - view_timelog_index_other_formats
+- Integrates via the view_layouts_base_html_head hook on TimelogController#index;
+  the export button is injected client-side (assets/javascripts/timepdf.js)
+  because Redmine 6 no longer exposes view_timelog_index_* hooks.
 - Fully permission-controlled through Redmine roles.
 - Compatible with Apache + Passenger or Puma deployments.
 
