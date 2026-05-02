@@ -1,11 +1,20 @@
 <%# Injects the JS asset and a config object the script reads to build buttons. %>
+<%
+  url, action_key, format_key =
+    case mode
+    when :report
+      [timepdf_report_export_project_path(project), :timepdf_report_export_pdf, :timepdf_report_link_label]
+    else
+      [timepdf_export_project_path(project),        :timepdf_export_pdf,        :timepdf_link_label]
+    end
+%>
 <%= javascript_include_tag 'timepdf', plugin: 'redmine_timepdf' %>
 <%= javascript_tag do %>
 window.timepdfConfig = {
-  url: <%= raw timepdf_export_project_path(project).to_json %>,
+  url: <%= raw url.to_json %>,
   labels: {
-    action: <%= raw l(:timepdf_export_pdf).to_json %>,
-    format: <%= raw l(:timepdf_link_label).to_json %>
+    action: <%= raw l(action_key).to_json %>,
+    format: <%= raw l(format_key).to_json %>
   }
 };
 <% end %>

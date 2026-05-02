@@ -1,10 +1,11 @@
 # Controller that renders the PDF for time entries using the user's active filters.
 class TimepdfController < ApplicationController
-  before_action :find_project, only: [:export]
-  before_action :authorize,    only: [:export]  # checks :export_spenttime_pdf via plugin permission
+  before_action :find_project, only: [:export, :report_export]
+  before_action :authorize,    only: [:export, :report_export]
   before_action :require_admin, only: [:upload_logo_form, :upload_logo]
 
   MAX_ENTRIES = 2000
+  MAX_PERIODS = 24      # Hard cap on report-pivot columns; exceeding it renders a hint page.
   HOURS_WIDTH = 120
   COLUMN_WIDTHS = {
     spent_on: 55,
@@ -81,6 +82,26 @@ class TimepdfController < ApplicationController
     pdf = build_pdf(@project, columns, groups, group_by, entries.empty?, truncated)
     send_data pdf.render,
               filename: "spent_time_#{@project.identifier}_#{Date.today}.pdf",
+              type: 'application/pdf',
+              disposition: 'inline'
+  end
+
+  # Renders the Report tab (TimelogController#report) as a PDF pivot table.
+  # Mirrors Redmine::Helpers::TimeReport: rows = selected criteria,
+  # columns = chosen time periods, cells = aggregated hours.
+  def report_export
+    @query = TimeEntryQuery.build_from_params(params, name: '_')
+    @query.project = @project if @project
+
+    criteria = Array(params[:criteria]).reject(&:blank?)
+    columns  = params[:columns].presence || 'month'
+    @report  = Redmine::Helpers::TimeReport.new(@project, nil, criteria, columns, @query)
+
+    Rails.logger.info("[timepdf] report criteria=#{criteria.inspect} columns=#{columns} periods=#{@report.periods.size}")
+
+    pdf = build_report_pdf(@project, @report)
+    send_data pdf.render,
+              filename: "spent_time_report_#{@project.identifier}_#{Date.today}.pdf",
               type: 'application/pdf',
               disposition: 'inline'
   end
@@ -240,5 +261,170 @@ class TimepdfController < ApplicationController
       doc.number_pages "<page>/<total>", at: [doc.bounds.right - 50, 0], size: 9
       doc.number_pages "#{l(:timepdf_generated)}: #{Date.today.strftime('%Y-%m-%d')}", at: [0, 0], size: 9
     end
+  end
+
+  # Renders the project header (title left, optional logo top-right).
+  def draw_pdf_header(doc, project, logo_path)
+    header_y = doc.cursor
+    doc.text project.name, size: 16, style: :bold
+    if logo_path
+      begin
+        doc.image logo_path, at: [doc.bounds.right - 120, header_y], fit: [100, 40]
+        doc.move_cursor_to(header_y - 40) if doc.cursor > (header_y - 40)
+      rescue StandardError => e
+        Rails.logger.warn("[timepdf] logo load failed: #{e.class}: #{e.message}")
+      end
+    end
+    doc.move_down 8
+  end
+
+  def draw_pdf_footer(doc)
+    doc.number_pages "<page>/<total>", at: [doc.bounds.right - 50, 0], size: 9
+    doc.number_pages "#{l(:timepdf_generated)}: #{Date.today.strftime('%Y-%m-%d')}", at: [0, 0], size: 9
+  end
+
+  # Pivot-table PDF for the Report tab. If the period count exceeds MAX_PERIODS,
+  # the table is replaced by a hint page so users narrow the date range or pick
+  # a coarser unit (month instead of day, etc.).
+  def build_report_pdf(project, report)
+    require 'prawn'
+    require 'prawn/table'
+
+    logo_path = sanitized_logo_path
+
+    Prawn::Document.new(page_size: 'A4', page_layout: :landscape, margin: 36).tap do |doc|
+      draw_pdf_header(doc, project, logo_path)
+
+      subtitle = report_subtitle(report)
+      if subtitle.present?
+        doc.text subtitle, size: 10, style: :italic
+        doc.move_down 6
+      end
+
+      if report.hours.empty?
+        doc.text l(:timepdf_no_entries), style: :italic
+      elsif report.periods.size > MAX_PERIODS
+        doc.text l(:timepdf_report_too_many_periods, count: report.periods.size, max: MAX_PERIODS),
+                 style: :italic, color: 'CC0000'
+      else
+        draw_report_table(doc, report)
+      end
+
+      draw_pdf_footer(doc)
+    end
+  end
+
+  def draw_report_table(doc, report)
+    periods    = report.periods
+    crit_count = report.criteria.size
+
+    header_row =
+      report.criteria.map { |c| criterion_caption(report, c) } +
+      periods.map        { |p| period_caption(p, report.columns) } +
+      [l(:timepdf_total)]
+
+    data_rows = build_report_data_rows(report, periods)
+    total_row = build_report_total_row(report, periods)
+
+    table_data = [header_row] + data_rows + [total_row]
+
+    last_idx = table_data[0].size - 1
+    tbl = doc.make_table(
+      table_data,
+      header: true,
+      row_colors: ['F8F8F8', 'FFFFFF']
+    )
+
+    tbl.cells.padding = 4
+    tbl.cells.borders = [:bottom]
+    tbl.row(0).font_style       = :bold
+    tbl.row(0).background_color = 'FFFFFF'
+    tbl.row(0).borders          = [:top, :bottom]
+    tbl.row(0).border_width     = 1.5
+    tbl.row(-1).font_style       = :bold
+    tbl.row(-1).background_color = 'D9D9D9'
+    tbl.row(-1).borders          = [:top, :bottom]
+    tbl.row(-1).border_width     = 1.5
+
+    # Right-align all numeric columns (period columns + total column).
+    (crit_count..last_idx).each { |i| tbl.columns(i).align = :right }
+
+    tbl.draw
+  end
+
+  # Aggregates report.hours into one row per unique criteria-value tuple.
+  def build_report_data_rows(report, periods)
+    return [] if report.criteria.empty?
+
+    grouped = report.hours.group_by { |h| report.criteria.map { |c| h[c] } }
+    grouped.sort_by { |key, _| key.map { |v| criterion_sort_key(v) } }.map do |values, entries|
+      per_period = entries.group_by { |h| h['period'] }
+                          .transform_values { |hs| hs.sum { |h| h['hours'].to_f } }
+      row_total = entries.sum { |h| h['hours'].to_f }
+
+      label_cells  = values.zip(report.criteria).map { |v, c| format_criterion_value(report, c, v) }
+      period_cells = periods.map { |p| per_period[p] ? sprintf('%.2f', per_period[p]) : '' }
+      [*label_cells, *period_cells, sprintf('%.2f', row_total)]
+    end
+  end
+
+  # Bottom totals: per-period sums across all rows + grand total.
+  def build_report_total_row(report, periods)
+    per_period  = report.hours.group_by { |h| h['period'] }
+                              .transform_values { |hs| hs.sum { |h| h['hours'].to_f } }
+    grand_total = report.hours.sum { |h| h['hours'].to_f }
+
+    leading = [l(:timepdf_total)] + ([''] * [report.criteria.size - 1, 0].max)
+    leading + periods.map { |p| sprintf('%.2f', per_period[p] || 0) } + [sprintf('%.2f', grand_total)]
+  end
+
+  def criterion_sort_key(value)
+    value.to_s
+  end
+
+  def criterion_caption(report, criterion)
+    cfg = report.available_criteria[criterion]
+    cfg && cfg[:label] ? l(cfg[:label]) : criterion.to_s.humanize
+  end
+
+  # Resolves a criterion's raw value (often an ID) into a human label via its klass.
+  def format_criterion_value(report, criterion, value)
+    return "[#{l(:label_none)}]" if value.blank?
+    cfg = report.available_criteria[criterion]
+    return value.to_s unless cfg
+
+    klass = cfg[:klass]
+    return value.to_s unless klass
+
+    obj = klass.find_by(id: value)
+    return value.to_s unless obj
+
+    case obj
+    when Issue then "##{obj.id}: #{obj.subject}"
+    else obj.to_s
+    end
+  rescue StandardError
+    value.to_s
+  end
+
+  def period_caption(period, columns)
+    case columns
+    when 'month'
+      year = period[0, 4]
+      month = period[5, 2].to_i
+      month_name = Date::ABBR_MONTHNAMES[month] || month.to_s
+      "#{month_name} #{year}"
+    else
+      period.to_s
+    end
+  end
+
+  def report_subtitle(report)
+    parts = []
+    parts << report.criteria.map { |c| criterion_caption(report, c) }.join(' / ') if report.criteria.any?
+    if report.from && report.to
+      parts << "#{report.from.strftime('%Y-%m-%d')} – #{report.to.strftime('%Y-%m-%d')}"
+    end
+    parts.join(' • ')
   end
 end

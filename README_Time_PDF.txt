@@ -1,4 +1,4 @@
-# Time PDF Export Plugin (v0.4.0)
+# Time PDF Export Plugin (v0.5.0)
 
 ## Overview
 The **Time PDF Export** plugin for Redmine allows exporting the *Spent time* view of any project into a clean, printable **PDF report**.
@@ -6,9 +6,13 @@ The **Time PDF Export** plugin for Redmine allows exporting the *Spent time* vie
 It respects all active filters, groupings, and visible columns in Redmine and is designed for clear, professional time tracking summaries.
 
 ### Key Features
-- Exports the current "Spent time" view as a PDF
+- Exports the current "Spent time" view as a PDF (Details tab)
+- Exports the Report tab as a pivot-table PDF (criteria x periods)
+- Separate permissions for Details and Report exports
 - Includes project title and optional logo in the header
 - Logo upload via the admin interface (no manual file copying required)
+- Logo can live in the plugin directory, a theme directory, or any
+  readable location on the server
 - Groups and summarizes time entries with per-group subtotals
 - Grand total row across all groups when grouping is active
 - Decimal-based hours (e.g., 7.50 instead of 7:30)
@@ -21,7 +25,8 @@ It respects all active filters, groupings, and visible columns in Redmine and is
 - 14pt spacing after every summary, 28pt before each new group
 - Opens PDF in a new browser tab
 - Multilingual: English and German included
-- Export limited to 2,000 entries; warning shown in PDF if truncated
+- Details export limited to 2,000 entries; Report export limited to 24
+  periods; warning shown in PDF if exceeded
 
 ---
 
@@ -65,22 +70,32 @@ Make sure the file is readable by the webserver user (e.g., www-data).
 ### 2. Set permissions
 Go to:
     Administration → Roles and permissions → Projects → Time PDF Export
-Enable the permission:
-    Export spent time PDF
+Enable one or both permissions:
+    Export spent time PDF          (Details tab)
+    Export spent time report PDF   (Report tab)
 
 ---
 
 ## Usage
-1. Open a project → Spent time tab.
+
+### Details tab
+1. Open a project → Spent time → Details.
 2. Apply filters, columns, or groupings as desired.
-3. Export via:
-    - The Actions (⋯) menu → Export PDF, or
-    - The link next to "Atom | CSV" at the bottom of the page.
+3. Export via the icon button in the contextual area or the link next
+   to "Atom | CSV" at the bottom of the page.
 4. The PDF opens in a new browser tab.
 
-Note: A filter must be applied before exporting. If no entries match
-the selected filters, the PDF will display an informational message
-instead of an empty document.
+### Report tab
+1. Open a project → Spent time → Report.
+2. Choose criteria (up to 3) and a time unit (year/month/week/day).
+3. Export via the icon button in the contextual area or the link next
+   to the format links at the bottom of the page.
+4. The PDF opens in a new browser tab.
+
+Note: A filter must be applied before exporting Details. If no entries
+match the selected filters, the PDF displays an informational message
+instead of an empty document. Reports with more than 24 periods are
+not rendered as a table — narrow the date range or pick a coarser unit.
 
 ---
 
