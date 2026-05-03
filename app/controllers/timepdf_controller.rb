@@ -422,8 +422,10 @@ class TimepdfController < ApplicationController
   def report_subtitle(report)
     parts = []
     parts << report.criteria.map { |c| criterion_caption(report, c) }.join(' / ') if report.criteria.any?
-    if report.from && report.to
-      parts << "#{report.from.strftime('%Y-%m-%d')} – #{report.to.strftime('%Y-%m-%d')}"
+    if report.periods.any?
+      first = period_caption(report.periods.first, report.columns)
+      last  = period_caption(report.periods.last,  report.columns)
+      parts << (first == last ? first : "#{first} – #{last}")
     end
     parts.join(' • ')
   end
