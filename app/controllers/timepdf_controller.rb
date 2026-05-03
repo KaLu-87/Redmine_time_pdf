@@ -1,12 +1,19 @@
-# Controller that renders the PDF for time entries using the user's active filters.
+# Time PDF Export controller. Four responsibilities:
+#   * #export        — Details PDF (TimelogController#index data)
+#   * #report_export — Report PDF (TimelogController#report pivot data)
+#   * #upload_logo_form / #upload_logo — admin-only logo upload, stores the
+#     file under <plugin_dir>/files/ and writes the absolute path into the
+#     plugin settings.
 class TimepdfController < ApplicationController
   before_action :find_project, only: [:export, :report_export]
   before_action :authorize,    only: [:export, :report_export]
   before_action :require_admin, only: [:upload_logo_form, :upload_logo]
 
-  MAX_ENTRIES = 2000
+  MAX_ENTRIES = 2000    # Max time entries rendered in the Details PDF before a truncation notice.
   MAX_PERIODS = 12      # Hard cap on report-pivot columns; exceeding it renders a hint page.
-  HOURS_WIDTH = 120
+  HOURS_WIDTH = 120     # Fixed width (pt) of the right-most "Hours" column in the Details PDF.
+  # Per-column widths (pt) for known Details-PDF columns. Anything not listed
+  # here gets the leftover width split evenly (typically the comments column).
   COLUMN_WIDTHS = {
     spent_on: 55,
     user:     80,
@@ -20,6 +27,11 @@ class TimepdfController < ApplicationController
     @current_path = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s
   end
 
+  # Stores an admin-uploaded PNG/JPG under <plugin_dir>/files/logo.<ext> and
+  # writes the absolute path into the plugin settings. The files/ folder lives
+  # inside the plugin directory and is wiped when the plugin is replaced —
+  # admins who want a persistent logo should instead point logo_path at a
+  # location outside plugins/ (e.g. the active theme's images directory).
   def upload_logo
     uploaded = params[:logo_file]
 
@@ -53,6 +65,9 @@ class TimepdfController < ApplicationController
     redirect_to plugin_settings_path(:redmine_timepdf)
   end
 
+  # Renders the Details tab as a PDF. Reuses the user's active query
+  # (filters, columns, grouping) by rebuilding it from the request params,
+  # then groups entries the same way the Details view does.
   def export
     Rails.logger.info("[timepdf] params=#{params.to_unsafe_h.inspect}")
     @query = TimeEntryQuery.build_from_params(params, name: '_')
@@ -126,7 +141,11 @@ class TimepdfController < ApplicationController
     widths
   end
 
-  # Returns the real, validated logo path or nil if missing/outside the plugin directory.
+  # Resolves the configured logo path. Returns the path string if it points to
+  # a readable PNG/JPG file, otherwise nil. The path may live anywhere on the
+  # filesystem — only admins can set it (plugin settings are admin-only) and
+  # the file is consumed exclusively by Prawn's image loader, so there is no
+  # path-traversal attack surface to protect against.
   def sanitized_logo_path
     raw = (Setting.plugin_redmine_timepdf['logo_path'] || '').to_s.strip
     return nil if raw.blank?
@@ -411,6 +430,10 @@ class TimepdfController < ApplicationController
     value.to_s
   end
 
+  # Formats a Redmine TimeReport period token for display. Note that month
+  # tokens are NOT zero-padded — TimeReport builds them as "#{year}-#{month}"
+  # (e.g. "2024-7" for July, "2024-12" for December), so .to_i on the slice
+  # handles both lengths. Year/week/day pass through as-is.
   def period_caption(period, columns)
     case columns
     when 'month'
