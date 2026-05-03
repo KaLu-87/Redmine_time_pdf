@@ -5,7 +5,7 @@ class TimepdfController < ApplicationController
   before_action :require_admin, only: [:upload_logo_form, :upload_logo]
 
   MAX_ENTRIES = 2000
-  MAX_PERIODS = 24      # Hard cap on report-pivot columns; exceeding it renders a hint page.
+  MAX_PERIODS = 12      # Hard cap on report-pivot columns; exceeding it renders a hint page.
   HOURS_WIDTH = 120
   COLUMN_WIDTHS = {
     spent_on: 55,
@@ -353,12 +353,15 @@ class TimepdfController < ApplicationController
   end
 
   # Aggregates report.hours into one row per unique criteria-value tuple.
+  # Each hours hash carries the period under a key matching report.columns
+  # (e.g. 'month' => '2024-7'), not under 'period'.
   def build_report_data_rows(report, periods)
     return [] if report.criteria.empty?
 
+    period_key = report.columns
     grouped = report.hours.group_by { |h| report.criteria.map { |c| h[c] } }
     grouped.sort_by { |key, _| key.map { |v| criterion_sort_key(v) } }.map do |values, entries|
-      per_period = entries.group_by { |h| h['period'] }
+      per_period = entries.group_by { |h| h[period_key] }
                           .transform_values { |hs| hs.sum { |h| h['hours'].to_f } }
       row_total = entries.sum { |h| h['hours'].to_f }
 
@@ -370,7 +373,8 @@ class TimepdfController < ApplicationController
 
   # Bottom totals: per-period sums across all rows + grand total.
   def build_report_total_row(report, periods)
-    per_period  = report.hours.group_by { |h| h['period'] }
+    period_key  = report.columns
+    per_period  = report.hours.group_by { |h| h[period_key] }
                               .transform_values { |hs| hs.sum { |h| h['hours'].to_f } }
     grand_total = report.hours.sum { |h| h['hours'].to_f }
 
