@@ -351,7 +351,8 @@ class TimepdfController < ApplicationController
     tbl = doc.make_table(
       table_data,
       header: true,
-      row_colors: ['F8F8F8', 'FFFFFF']
+      row_colors: ['F8F8F8', 'FFFFFF'],
+      column_widths: report_column_widths(doc, report)
     )
 
     tbl.cells.padding = 4
@@ -369,6 +370,25 @@ class TimepdfController < ApplicationController
     (crit_count..last_idx).each { |i| tbl.columns(i).align = :right }
 
     tbl.draw
+  end
+
+  # Distributes column widths so the report table always spans the full page
+  # width. Numeric columns (periods + total) get a clamped per-column share
+  # (40–90pt) and criterion columns absorb the rest. The last column takes
+  # the float remainder so the sum matches doc.bounds.width exactly — Prawn
+  # rejects a column_widths sum that does not match the table width.
+  def report_column_widths(doc, report)
+    total  = doc.bounds.width
+    crit_n = report.criteria.size
+    num_n  = report.periods.size + 1
+
+    ideal_num_w = total / (crit_n * 2 + num_n).to_f
+    num_w       = ideal_num_w.clamp(40, 90)
+    crit_w      = crit_n.positive? ? [(total - num_w * num_n) / crit_n.to_f, 60].max : 0
+
+    widths     = ([crit_w] * crit_n) + ([num_w] * num_n)
+    widths[-1] += total - widths.sum
+    widths
   end
 
   # Aggregates report.hours into one row per unique criteria-value tuple.

@@ -1,4 +1,4 @@
-# Time PDF Export Plugin (v0.5.3)
+# Time PDF Export Plugin (v0.5.4)
 
 ## Overview
 The **Time PDF Export** plugin for Redmine allows exporting the *Spent time*
@@ -146,7 +146,7 @@ In Redmine, go to:
 
     Administration → Plugins
 
-You should see: **Time PDF Export (v0.5.3)**
+You should see: **Time PDF Export (v0.5.4)**
 
 ---
 
